@@ -148,26 +148,33 @@
             </div>
         </div>
 
-        <div id="machines-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"></div>
+        <div id="machines-grid" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"></div>
     </div>
 
     <!-- ==================== MODAIS ==================== -->
 
     <!-- MODAL DE LIVE STREAM -->
-    <div id="stream-modal" class="hidden fixed inset-0 bg-black/95 z-[60] flex flex-col p-2 sm:p-4 backdrop-blur-sm">
-        <div class="w-full flex justify-between items-center mb-2 sm:mb-4 shrink-0 px-1 sm:px-4 mt-2 sm:mt-0">
-            <h2 class="text-sm sm:text-xl text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-2 truncate pr-2">
+    <div id="stream-modal" class="hidden fixed inset-0 bg-black/95 z-[60] flex flex-col p-0 sm:p-4 backdrop-blur-sm">
+        <!-- HEADER DO MODAL (Com botão de Fullscreen) -->
+        <div class="w-full flex justify-between items-center mb-0 sm:mb-4 shrink-0 px-3 py-3 sm:px-4 mt-2 sm:mt-0 bg-black/50 sm:bg-transparent absolute sm:relative top-0 z-50">
+            <h2 class="text-sm sm:text-xl text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-2 truncate pr-2 shadow-black drop-shadow-md">
                 <div class="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_#ef4444] shrink-0"></div> 
                 <span class="truncate">Transmissão HD</span>
             </h2>
-            <button onclick="closeStreamModal()" class="text-gray-400 hover:text-white transition-colors bg-slate-800/80 p-2 sm:p-2.5 rounded-lg border border-slate-700 active:scale-95 shrink-0">
-                <svg width="20" height="20" class="sm:w-6 sm:h-6" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
+            <div class="flex gap-2">
+                <button onclick="toggleFullScreenStream()" class="text-gray-300 hover:text-white transition-colors bg-slate-800/80 p-2 sm:p-2.5 rounded-lg border border-slate-700 active:scale-95 shrink-0" title="Tela Cheia">
+                    <svg width="20" height="20" class="sm:w-6 sm:h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                </button>
+                <button onclick="closeStreamModal()" class="text-gray-300 hover:text-white transition-colors bg-slate-800/80 p-2 sm:p-2.5 rounded-lg border border-slate-700 active:scale-95 shrink-0">
+                    <svg width="20" height="20" class="sm:w-6 sm:h-6" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
         </div>
         
-        <div class="flex-1 w-full bg-black rounded-lg sm:rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center relative shadow-2xl min-h-0">
+        <!-- CONTAINER DA IMAGEM COM TOUCH-NONE PARA ZOOM/PAN -->
+        <div id="stream-container-inner" class="flex-1 w-full h-full bg-black sm:rounded-xl sm:border sm:border-slate-800 overflow-hidden flex items-center justify-center relative shadow-2xl min-h-0 touch-none">
             <p id="stream-status" class="absolute text-slate-500 z-10 font-mono text-xs sm:text-sm animate-pulse px-4 text-center">A aguardar conexão com o alvo...</p>
-            <img id="live-stream-img" class="w-full h-full object-contain relative z-20 pointer-events-none" src="" alt="">
+            <img id="live-stream-img" class="w-full h-full object-contain relative z-20 origin-center transition-transform duration-75" src="" alt="">
         </div>
     </div>
 
@@ -336,11 +343,9 @@
         let recordedKeys = new Set();
         let globalAdminConfig = {}; 
         
-        // VARIÁVEL QUE GUARDA O ÚNICO CARD ABERTO
-        let expandedClientId = null; 
+        let expandedClients = new Set(); 
         window.clientsCache = {};
 
-        // TESTE DE TELEGRAM API (WEB)
         async function testTelegramWeb(tokenId, chatId) {
             const token = document.getElementById(tokenId).value.trim();
             const chat = document.getElementById(chatId).value.trim();
@@ -553,32 +558,15 @@
             document.getElementById('refresh-loader').classList.add('hidden');
         }
 
-        // --- SISTEMA ACORDEÃO PARA DISPOSITIVOS MÓVEIS (MD:BLOCK) ---
-        function toggleClientCard(safeId) {
-            // Ignora o clique se estiver num computador (telas maiores que 768px)
+        function toggleClientCard(clientId) {
             if (window.innerWidth >= 768) return;
-
-            if (expandedClientId === safeId) {
-                expandedClientId = null; 
+            if (expandedClients.has(clientId)) {
+                expandedClients.delete(clientId);
             } else {
-                expandedClientId = safeId; 
+                expandedClients.clear(); 
+                expandedClients.add(clientId);
             }
-
-            document.querySelectorAll('.client-details-box').forEach(el => {
-                if(el.id === `details-${expandedClientId}`) {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
-            });
-            
-            document.querySelectorAll('.client-chevron-icon').forEach(el => {
-                if(el.id === `chevron-${expandedClientId}`) {
-                    el.classList.add('rotate-180');
-                } else {
-                    el.classList.remove('rotate-180');
-                }
-            });
+            if(window.clientsCache) { renderClients(window.clientsCache); }
         }
 
         function renderClients(clientsObj) {
@@ -610,9 +598,8 @@
                 const ip = clientData.status?.ip || 'Desconhecido';
                 const os = clientData.status?.os || 'Desconhecido';
                 const user = clientData.status?.user || 'Desconhecido';
-                
-                const rawDisplayName = clientData.status?.custom_name || clientId;
-                const escDisplayName = rawDisplayName.replace(/'/g, "\\'");
+                const displayName = clientData.status?.custom_name || clientId;
+                const escDisplayName = displayName.replace(/'/g, "\\'");
                 
                 let lastSeenStr = "Nunca";
                 if(clientData.status?.last_seen) {
@@ -627,33 +614,30 @@
                      hasStream = true;
                 }
 
-                // Valida expansão pelo SAFE ID
-                const isExpanded = (expandedClientId === safeId);
-                const detailsDisplayClass = isExpanded ? '' : 'hidden';
+                const isExpanded = expandedClients.has(clientId);
+                const detailsDisplayClass = isExpanded ? '' : 'hidden md:block';
                 const chevronRotationClass = isExpanded ? 'rotate-180' : '';
 
                 finalHtml += `
                     <div class="glass p-4 sm:p-5 rounded-2xl border border-slate-800 hover:border-slate-700 transition-colors flex flex-col relative overflow-hidden">
                         
-                        <div onclick="toggleClientCard('${safeId}')" class="flex justify-between items-center cursor-pointer md:cursor-default select-none group md:mb-0 md:pb-0 pb-3 mb-4 border-b border-slate-800 md:border-b-0">
+                        <div onclick="toggleClientCard('${escClientId}')" class="flex justify-between items-center cursor-pointer md:cursor-default select-none group md:mb-4 md:pb-3 md:border-b md:border-slate-800">
                             <div class="flex-1 truncate pr-2">
                                 <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-1.5 truncate" title="ID Original: ${clientId}">
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="text-sky-500 flex-shrink-0 sm:w-4 sm:h-4"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                                    ${rawDisplayName}
+                                    ${displayName}
                                 </h3>
                                 <p class="text-[9px] sm:text-[10px] text-slate-400 mt-1 truncate">${user} @ ${ip}</p>
                             </div>
                             <div class="flex items-center gap-2 sm:gap-3 shrink-0">
                                 ${statusHtml}
-                                <!-- Setinha escondida no Desktop (md:hidden) -->
                                 <div class="bg-slate-800/50 group-hover:bg-slate-700 p-1.5 rounded-lg ml-1 transition-colors md:hidden">
-                                    <svg id="chevron-${safeId}" class="client-chevron-icon w-4 h-4 text-slate-400 transition-transform duration-300 ${chevronRotationClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    <svg class="w-4 h-4 text-slate-400 transition-transform duration-300 ${chevronRotationClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Forçado a aparecer no Desktop (md:block) -->
-                        <div id="details-${safeId}" class="client-details-box ${detailsDisplayClass} md:block mt-4 pt-4 border-t border-slate-800 md:mt-4">
+                        <div class="${detailsDisplayClass} mt-4 pt-4 border-t border-slate-800 md:mt-0 md:pt-0 md:border-t-0">
                             <div class="grid grid-cols-2 gap-2 mb-4 text-[10px] sm:text-xs">
                                 <div class="bg-slate-900/50 p-2 rounded border border-slate-800 col-span-2">
                                     <span class="text-slate-500 block mb-0.5 sm:mb-1">Última Atividade C2</span>
@@ -690,9 +674,11 @@
                                     Configurações C2
                                 </button>
                                 
-                                <div class="grid grid-cols-2 gap-2 mt-2 border-t border-slate-800 pt-2">
-                                    <button onclick="if(confirm('Deseja REINICIAR O AGENTE na máquina ${escDisplayName}?')) sendCommand('${escClientId}', 'restart_app', this)" class="bg-indigo-900/60 hover:bg-indigo-600 text-white py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase border border-indigo-900/80 active:scale-95 flex items-center justify-center gap-1"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> App</button>
-                                    <button onclick="if(confirm('Deseja REINICIAR O PC INTEIRO da máquina ${escDisplayName}?')) sendCommand('${escClientId}', 'restart_pc', this)" class="bg-indigo-900/60 hover:bg-indigo-600 text-white py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase border border-indigo-900/80 active:scale-95 flex items-center justify-center gap-1"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> PC</button>
+                                <div class="mt-2 border-t border-slate-800 pt-2">
+                                    <button onclick="if(confirm('Deseja REINICIAR O PC INTEIRO da máquina ${escDisplayName}?')) sendCommand('${escClientId}', 'restart_pc', this)" class="w-full bg-indigo-900/60 hover:bg-indigo-600 text-white py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase border border-indigo-900/80 active:scale-95 flex items-center justify-center gap-1">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> 
+                                        Reiniciar PC
+                                    </button>
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-2 mt-2">
@@ -716,9 +702,82 @@
             }
         }
 
+        // === CONTROLO DE ZOOM E PAN NO VIDEO ===
+        const streamContainerInner = document.getElementById('stream-container-inner');
+        const streamImg = document.getElementById('live-stream-img');
+        let zoomScale = 1;
+        let panPos = { x: 0, y: 0 };
+        let startPanPos = { x: 0, y: 0 };
+        let lastTouchDist = 0;
+        let isDragging = false;
+
+        streamContainerInner.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                isDragging = false;
+                lastTouchDist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+            } else if (e.touches.length === 1 && zoomScale > 1) {
+                isDragging = true;
+                startPanPos = { x: e.touches[0].pageX - panPos.x, y: e.touches[0].pageY - panPos.y };
+            }
+        }, {passive: false});
+
+        streamContainerInner.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                zoomScale = Math.min(Math.max(1, zoomScale + (dist - lastTouchDist) * 0.01), 6);
+                lastTouchDist = dist;
+                if (zoomScale === 1) panPos = {x: 0, y: 0};
+                streamImg.style.transform = `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomScale})`;
+            } else if (e.touches.length === 1 && isDragging) {
+                e.preventDefault();
+                panPos.x = e.touches[0].pageX - startPanPos.x;
+                panPos.y = e.touches[0].pageY - startPanPos.y;
+                streamImg.style.transform = `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomScale})`;
+            }
+        }, {passive: false});
+
+        streamContainerInner.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            zoomScale = Math.min(Math.max(1, zoomScale - e.deltaY * 0.002), 6);
+            if (zoomScale === 1) panPos = {x: 0, y: 0};
+            streamImg.style.transform = `translate(${panPos.x}px, ${panPos.y}px) scale(${zoomScale})`;
+        }, {passive: false});
+
+        function resetStreamZoom() {
+            zoomScale = 1; 
+            panPos = {x:0, y:0};
+            streamImg.style.transform = `translate(0px, 0px) scale(1)`;
+        }
+
+        // === CONTROLO TELA CHEIA ===
+        function toggleFullScreenStream() {
+            const container = document.getElementById('stream-modal');
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
         function openStreamModal(clientId, streamUrl) {
             currentStreamTarget = clientId;
             document.getElementById('stream-modal').classList.remove('hidden');
+            resetStreamZoom();
             
             if (streamUrl && streamUrl.includes('http')) {
                 document.getElementById('stream-status').innerText = "A conectar ao túnel Cloudflare HD...";
@@ -736,6 +795,13 @@
             currentStreamTarget = '';
             document.getElementById('live-stream-img').src = ""; 
             document.getElementById('stream-status').innerText = "A aguardar conexão com o alvo...";
+            resetStreamZoom();
+            
+            // Tenta sair da tela cheia se fechar o modal
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
         }
 
         async function sendCommand(clientId, cmdStr, btnElement) {
